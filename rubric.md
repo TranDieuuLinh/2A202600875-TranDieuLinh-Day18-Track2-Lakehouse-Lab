@@ -1,60 +1,100 @@
-# Day 18 Lab — Grading Rubric (100 pts)
+# Rubric — Lab 18: Production RAG Pipeline
 
-Maps 1-to-1 to the slide deliverable (4 bullets). Track-2 Daily Lab weight = 30%.
+**Tổng: 100 điểm + 10 bonus · Cá nhân**
 
-The lab supports two paths (lightweight `deltalake` vs Spark/Docker). Both
-write the **same on-disk Delta format**, so each criterion below accepts
-evidence from either path:
+---
 
-- *MinIO `_delta_log/` visible* (Spark path) ↔ *`_lakehouse/.../_delta_log/` visible on local disk* (lightweight path)
-- *Spark `OPTIMIZE ... ZORDER BY`* ↔ *`dt.optimize.compact()` + `dt.optimize.z_order(...)`*
-- *Spark `MERGE INTO`* ↔ *`dt.merge(...).when_matched_update_all().execute()`*
+## Implementation (60 điểm)
 
-Submit screenshot + notebook output for each criterion.
+| # | Tiêu chí | Điểm | Cách chấm |
+|---|----------|------|-----------|
+| 1 | M1 Chunking — 3 strategies đúng logic | 12 | Code review + `pytest tests/test_m1.py` |
+| 2 | M2 Search — BM25 + Dense + RRF | 12 | Code review + `pytest tests/test_m2.py` |
+| 3 | M3 Rerank — CrossEncoder load + rerank | 12 | Code review + `pytest tests/test_m3.py` |
+| 4 | M4 Eval — RAGAS + failure analysis | 12 | Code review + `pytest tests/test_m4.py` |
+| 5 | M5 Enrichment — ít nhất 1 technique | 12 | Code review + `pytest tests/test_m5.py` |
 
-| # | Notebook | Criterion (path-agnostic) | Pts |
-|---|---|---|---:|
-| 1 | `01_delta_basics` | Delta table created; `_delta_log/` JSON files visible (MinIO console **or** local FS) | 10 |
-| 1 | `01_delta_basics` | Schema enforcement blocks the `age=str` write | 5 |
-| 1 | `01_delta_basics` | `schema_mode="merge"` (or `mergeSchema=true`) adds the `tier` column | 5 |
-| 2 | `02_optimize_zorder` | Reproduce small-file problem (≥ 100 files before OPTIMIZE) | 5 |
-| 2 | `02_optimize_zorder` | OPTIMIZE+ZORDER speedup ≥ 3× **or** files-pruned ratio ≥ 10× (delta-rs `to_pyarrow_table(filters=...)` bench) | 15 |
-| 2 | `02_optimize_zorder` | `numFiles` decreased meaningfully after OPTIMIZE | 5 |
-| 3 | `03_time_travel` | `history()` shows ≥ 5 versions (including the RESTORE) | 5 |
-| 3 | `03_time_travel` | MERGE upsert 100K rows succeeds in < 60 s | 10 |
-| 3 | `03_time_travel` | RESTORE rolls back bad data in < 30 s, verified `score < 0` count = 0 | 10 |
-| 4 | `04_medallion`    | Bronze, Silver, Gold tables all exist on the storage layer of your path | 10 |
-| 4 | `04_medallion`    | Silver dedup measurably drops rows (Silver < Bronze count) | 5 |
-| 4 | `04_medallion`    | Gold aggregations correct (p50/p95 latency, cost_usd, error_rate) for ≥ 7 dates | 10 |
-| — | All notebooks     | Reproducible from clean `make setup && make smoke` (lite) or `make spark-up && make spark-smoke` (docker) | 5 |
-|   |                   | **Core total** | **100** |
+### Thang điểm test (mỗi module)
 
-## Bonus Challenge (optional, ungraded)
+| Tests pass | Điểm |
+|-----------|------|
+| 100% | 12 |
+| ≥ 75% | 9 |
+| ≥ 50% | 6 |
+| < 50% | 3 |
 
-Open-ended architecture brief — see
-[`BONUS-CHALLENGE.md`](BONUS-CHALLENGE.md) (tiếng Việt) /
-[`BONUS-CHALLENGE-EN.md`](BONUS-CHALLENGE-EN.md) (English)
-for the full brief, recommended topics, and a self-checklist of what strong
-submissions look like.
+---
 
-The bonus does **not** affect your core grade. Submissions get a substantive
-written review from the instructor focusing on judgment and tradeoff
-reasoning. Treat it as a portfolio piece, not a credit grab.
+## Pipeline & Evaluation (25 điểm)
 
-## Submission
+| # | Tiêu chí | Điểm | Cách chấm |
+|---|----------|------|-----------|
+| 6 | Pipeline chạy end-to-end | 10 | `python src/pipeline.py` exit code 0 |
+| 7 | RAGAS scores hợp lý | 10 | Check `ragas_report.json` |
+| 8 | Failure analysis có insight | 5 | Review `analysis/failure_analysis.md` |
 
-Push your work to: `<your-username>/Day18-Track2-Lakehouse-Lab` (fork) and open a
-PR back to upstream. Include:
+### Thang điểm RAGAS (#7)
 
-1. The 4 executed notebooks (committed with output cells preserved)
-2. `submission/screenshots/` — at least one of:
-   - MinIO console showing `_delta_log/` + bucket layout (Spark path), OR
-   - Terminal `tree _lakehouse/` + a screenshot of one `_delta_log/*.json` file content (lite path)
-3. `submission/REFLECTION.md` (≤ 200 words): which anti-pattern from the “Top 5 Lakehouse Anti-Patterns” slide
-   would your team's data be most at risk of, and why?
-4. **Optional:** `submission/bonus/ARCHITECTURE.md` + `submission/bonus/poc/`
-   for the [bonus challenge](BONUS-CHALLENGE.md).
+| Điều kiện | Điểm |
+|-----------|------|
+| ≥ 3 metrics đạt 0.70 | 10 |
+| ≥ 2 metrics đạt 0.70 | 8 |
+| ≥ 1 metric đạt 0.70 | 5 |
+| Pipeline chạy nhưng scores thấp | 3 |
 
-## Late policy / regrade
+### Thang điểm Failure Analysis (#8)
 
-Standard Track-2 policy applies — see `INDEX-Track2.md`.
+| Điều kiện | Điểm |
+|-----------|------|
+| Bottom-5 có diagnosis + fix + Error Tree | 5 |
+| Có diagnosis nhưng thiếu Error Tree | 3 |
+| Liệt kê failures không phân tích | 1 |
+
+---
+
+## Reflection (15 điểm)
+
+| # | Tiêu chí | Điểm | Cách chấm |
+|---|----------|------|-----------|
+| 9 | Lecture mapping — concept → code cụ thể | 5 | Bảng mapping đầy đủ 5 modules |
+| 10 | Khó khăn — mô tả + cách giải quyết | 5 | Có exact error + debug process |
+| 11 | Action plan — áp dụng vào project cá nhân | 5 | Plan cụ thể, có timeline |
+
+---
+
+## Bonus (+10 max)
+
+| Bonus | Điểm | Kiểm tra |
+|-------|------|----------|
+| RAGAS Faithfulness ≥ 0.85 | +3 | `ragas_report.json` |
+| RAGAS tất cả metrics ≥ 0.75 | +3 | `ragas_report.json` |
+| Enrichment combined mode (1 call/chunk) | +2 | Code review: `_enrich_single_call()` |
+| Latency breakdown report | +2 | Có bảng thời gian từng bước |
+
+---
+
+## Auto-grading
+
+```bash
+# Tests
+pytest tests/ -v
+
+# Lint
+ruff check src/ 2>/dev/null || echo "ruff not installed, skip"
+
+# TODO count (should be 0)
+grep -r "# TODO" src/m*.py | wc -l
+
+# Pipeline
+python src/pipeline.py
+```
+
+---
+
+## Quy trình nộp
+
+1. Implement tất cả TODOs
+2. Chạy `python src/pipeline.py` → `ragas_report.json`
+3. Điền `analysis/failure_analysis.md`
+4. Viết `analysis/reflection_[HọTên].md`
+5. Push lên GitHub, nộp link repo
